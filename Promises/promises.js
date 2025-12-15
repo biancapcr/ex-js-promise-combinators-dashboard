@@ -8,47 +8,56 @@ async function getDashboardData(query) {
     const destinationsFetch = fetch(
       `http://localhost:3333/destinations?search=${query}`
     ).then((res) => res.json());
+
     const weathersFetch = fetch(
       `http://localhost:3333/weathers?search=${query}`
     ).then((res) => res.json());
+
     const airportsFetch = fetch(
       `http://localhost:3333/airports?search=${query}`
     ).then((res) => res.json());
 
-    // Promise.all() => esegue tutte le chiamate contemporaneamente
-    // il risultato sarà un array con le risposte in ordine
-    const [destinations, weathers, airports] = await Promise.all([
+    // Promise.allSettled() → attende che tutte finiscano
+    const results = await Promise.allSettled([
       destinationsFetch,
       weathersFetch,
       airportsFetch,
     ]);
 
+    // map dei risultati: se "fulfilled", prendo .value; se "rejected", assegno []
+    const [destinations, weathers, airports] = results.map((r, i) => {
+      if (r.status === "fulfilled") {
+        return r.value; // la chiamata è andata a buon fine
+      } else {
+        console.error(`Request ${i + 1} failed:`, r.reason);
+        return []; // ritorna un array vuoto se la chiamata è fallita
+      }
+    });
+
     // primo elemento da ciascun array (se esiste)
-    // se l'array è vuoto -> {}
     const destination = destinations[0] || {};
     const weather = weathers[0] || {};
     const airport = airports[0] || {};
 
     // oggetto finale con i dati aggregati
-    // se un dato manca -> null
     const data = {
-      city: destination.name || null, // nome città
-      country: destination.country || null, // paese
-      temperature: weather.temperature || null, // temperatura attuale
-      weather: weather.weather_description || null, // descrizione meteo
-      airport: airport.name || null, // aeroporto principale
+      city: destination.name || null,
+      country: destination.country || null,
+      temperature: weather.temperature || null,
+      weather: weather.weather_description || null,
+      airport: airport.name || null,
     };
 
     // restituzione dell’oggetto
     return data;
   } catch (error) {
-    // cattura di qualsiasi errore
-    throw new Error("Error fetching dashboard data: " + error.message);
+    // cattura eventuali errori globali
+    throw new Error("Unexpected error: " + error.message);
   }
 }
 
 // test
-getDashboardData("vienna")
+getDashboardData("london")
   .then((data) => {
     // stampa in console l'oggetto ricevuto
     console.log("Dashboard data:", data);
